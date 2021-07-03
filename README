@@ -1,0 +1,32 @@
+Two in one command line tool. 'hexf' and 'synalyze' in one place.
+
+SYNOPSIS:
+    syn [-x|-xo] [-s|-ss] [file1 file2 ...] 
+    syn -c [-ss] file1 file2
+
+INFO:
+    Both 'hexf' (intalled by 'Hex Fiend') and 'synalyze' (installed by 'Synalyze It!') must be installed and available within the $PATH.
+    By default, all files are only opened with 'Synalyze It!'. You can open files only with 'Hex Fiend' by using `-xo` or `-x` to open files with both 'Synalyze It!' (synalyze) and 'Hex Fiend' (hexf).
+    By default, when a file does not exists the program creates it and opens it. You can disable this by using strict mode `-s` to finish the program when a file or directory does not exist or use soft-strict mode `-ss` to ignore nonexistent files and do not panic the program.
+    When syn has no arguments it will open the specified app (which you can specify using `-x`, `-xo` or nothing) with a new empty file Untitled (disable startup welcome panel in 'Synalyze It!' preferences).
+    Due to 'compare' `-c` strict default mode, `-ss` can be used with it to enable missing file(s) creation.
+
+OPTIONS:
+    -c,  --compare          Opens two given files with 'Hex Fiend' compare mode. Panics with nonexistent files, you can use `-ss` to create them.
+
+    -s,  --strict           Strict mode, panics when a nonexistent file is given.
+    -ss, --soft-strict      Soft strict mode, ignores nonexistent files and opens all valid ones.
+
+    -x,  --hexf             Opens all files with 'Hex Fiend' along with 'Synalyze It!'.
+    -xo, --hexf-only        Opens all files only with 'Hex Fiend'.
+
+    -h,  --help             Prints this message.
+    -v,  --version          Print syn version.
+    
+EXAMPLES:
+    syn file.txt                    -- Opens 'file.txt' with 'Synalyze It!'
+    syn -x file.txt                 -- Opens 'file.txt' with both 'Synalyze It!' and 'Hex Fiend'
+    syn -xo file.txt                -- Opens 'file.txt' with 'Hex Fiend'
+    syn -c -ss file1 file2          -- Compares file1 and file2 with 'Hex Fiend'. If a file does not exist, it creates it.
+    syn -c file1 file2              -- Compares file1 and file2 with 'Hex Fiend'. If a file does not exist, panics... fails.
+    syn -x -ss file1 file2 file3    -- Opens 'file1', 'file2' and 'file3' with both 'Synalyze It!' and 'Hex Fiend'. If a file does not exists it just ignores it and opens the rest.
