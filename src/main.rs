@@ -1,7 +1,7 @@
 use std::fs::OpenOptions;
 use std::process::{Command};
 
-const VERSION: &str = "1.0.0";
+const VERSION: &str = "1.1.0";
 
 struct Error(String);
 
@@ -12,7 +12,7 @@ impl From<std::io::Error> for Error {
 }
 
 impl std::fmt::Debug for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{}", self.0)
     }
 }
@@ -23,7 +23,7 @@ impl std::convert::From<std::string::FromUtf8Error> for Error {
     }
 }
 
-fn load_file<'a >(name: &str, current_dir: &str, strict: bool, soft: bool, compare: bool) -> Result<String,Error> {
+fn load_file(name: &str, current_dir: &str, strict: bool, soft: bool, compare: bool) -> Result<String, Error> {
     let path = if name.starts_with("/") {
         name.to_string()
     } else {
@@ -45,12 +45,13 @@ macro_rules! e_error {
     }};
 }
 
-fn print_help() {
-    println!(
+macro_rules! print_help {
+    () => {
+        println!(
 "Two in one command line tool. 'hexf' and 'synalyze' in one place.
 
 SYNOPSIS:
-    syn [-x|-xo] [-s|-ss] [file1 file2 ...] 
+    syn [-x|-xo] [-s|-ss] [file1 file2 ...]
     syn -c [-ss] file1 file2
 
 INFO:
@@ -71,7 +72,7 @@ OPTIONS:
 
     -h,  --help             Prints this message.
     -v,  --version          Print syn version.
-    
+
 EXAMPLES:
     syn file.txt                    -- Opens 'file.txt' with 'Synalyze It!'
     syn -x file.txt                 -- Opens 'file.txt' with both 'Synalyze It!' and 'Hex Fiend'
@@ -80,9 +81,9 @@ EXAMPLES:
     syn -c file1 file2              -- Compares file1 and file2 with 'Hex Fiend'. If a file does not exist, panics... fails.
     syn -x -ss file1 file2 file3    -- Opens 'file1', 'file2' and 'file3' with both 'Synalyze It!' and 'Hex Fiend'. If a file does not exists it just ignores it and opens all other files.
     "
-        
-    );
-    panic!()
+
+    )
+    }
 }
 
 macro_rules! hexf_open_imp {
@@ -114,10 +115,14 @@ impl MkTrue for bool {
     }
 }
 
-fn main() -> Result<(),Error> {
+fn main() {
+    if let Ok(code) = r_main() { std::process::exit(code) }
+}
+
+fn r_main() -> Result<i32, Error> {
     std::panic::set_hook(Box::new(|_info| {}));
 
-    let mut args: Vec<String> = std::env::args().collect::<Vec<String>>(); args.remove(0);
+    let mut args: Vec<String> = std::env::args().skip(1).collect::<Vec<String>>();
     let current_dir = std::env::current_dir()?.display().to_string();
 
     let mut paths: Vec<String> = Vec::new();
@@ -127,12 +132,14 @@ fn main() -> Result<(),Error> {
     let mut strict_soft_mode = false;
     let mut hexf = false;
     let mut hexf_only = false;
-    
+
+    let mut exit = false;
+
     args.retain( |x: &String| {
         if x.starts_with("-") {
             match &x[..] {
-                "--help" | "-h" => print_help(),
-                "--version" | "-v" => {println!("syn {}", VERSION); panic!()},
+                "--help" | "-h" => {print_help!(); exit.mk_true()},
+                "--version" | "-v" => {println!("syn {}", VERSION); exit.mk_true()},
                 "-s" | "--strict" => strict_mode.mk_true(),
                 "-ss"| "--soft-strict" => strict_soft_mode.mk_true(),
                 "-c" |  "--compare" => compare.mk_true(),
@@ -140,10 +147,15 @@ fn main() -> Result<(),Error> {
                 "-xo"| "--hexf-only" => hexf_only.mk_true(),
                 _ => ()
             };
-            return false;
+            false
+        } else {
+            true
         }
-        true
     });
+
+    if exit { return Ok(0) }
+
+    drop(exit);
 
     if compare && (hexf_only || hexf || strict_mode) {
         e_error!("Invalid input: '-c', '--compare' flag works only with '-ss' flag.")
@@ -168,13 +180,12 @@ fn main() -> Result<(),Error> {
             if let Err(e) = state {
                 e_error!(format!("Maybe 'hexf' is not installed? Make sure it is installed and available in the $PATH. {}", e.to_string()));
             }
-            panic!()
         } else {
             e_error!("Invalid input: '-c', '--compare' requires two files.")
         }
     }
-    
-    
+
+
     if hexf_only {
         hexf_open!(&paths, files_num);
     } else {
@@ -194,5 +205,45 @@ fn main() -> Result<(),Error> {
     }
 
 
-    Ok(())
+    Ok(0)
+}
+
+#[test]
+fn test() {
+
+    std::process::Command::new("rm").args(["test"]).status().unwrap();
+    std::process::Command::new("./build").status().unwrap();
+
+    let test =  std::process::Command::new("syn")
+        .args(["-v"])
+        .output().unwrap();
+
+    println!("Version: {}", test.status.code().unwrap());
+
+    assert_eq!(String::from_utf8(test.stdout).unwrap(), format!("syn {}\n", VERSION));
+    assert_eq!(test.status.code().unwrap(), 0);
+
+    let test =  std::process::Command::new("syn")
+        .args(["-h"])
+        .output().unwrap();
+
+    println!("Help: {}", test.status.code().unwrap());
+    assert_eq!(test.status.code().unwrap(), 0);
+
+    let test = std::process::Command::new("syn")
+        .args(["-s", "test"])
+        .status().unwrap();
+
+    println!("MustFail: {}", test.code().unwrap());
+    assert_ne!(test.code().unwrap(), 0);
+
+    let test = std::process::Command::new("syn")
+        .args(["test"])
+        .status().unwrap();
+
+    println!("MustSucceed: {}", test.code().unwrap());
+    assert_eq!(test.code().unwrap(), 0);
+
+    std::process::Command::new("rm").args(["test"]).status().unwrap();
+
 }
